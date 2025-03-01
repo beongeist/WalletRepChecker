@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH Wallet Checker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.8.2/web3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9fafb;
+            color: #333;
+        }
+        h1 {
+            color: #6366f1;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        button {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #4f46e5;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 6px;
+            background-color: #f3f4f6;
+            display: none;
+        }
+        .balance-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .balance-info:last-child {
+            border-bottom: none;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        .error {
+            color: #ef4444;
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ETH Wallet Checker</h1>
+    
+    <div class="card">
+        <h2>Check Wallet Balance</h2>
+        <p>Enter an Ethereum wallet address to check its balance and transaction count</p>
+        
+        <input type="text" id="walletAddress" placeholder="Enter Ethereum address (0x...)">
+        <button onclick="checkWallet()">Check Wallet</button>
+        
+        <div class="loading" id="loading">
+            <p>Fetching data from the blockchain...</p>
+        </div>
+        
+        <div class="error" id="error">
+            <p>Error: Please enter a valid Ethereum address</p>
+        </div>
+        
+        <div class="result" id="result">
+            <h3>Wallet Information</h3>
+            <div class="balance-info">
+                <span>Address:</span>
+                <span id="address"></span>
+            </div>
+            <div class="balance-info">
+                <span>ETH Balance:</span>
+                <span id="balance"></span>
+            </div>
+            <div class="balance-info">
+                <span>Transaction Count:</span>
+                <span id="txCount"></span>
+            </div>
+            <div class="balance-info">
+                <span>Network:</span>
+                <span id="network"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>About This Project</h2>
+        <p>This project demos integration with the Ethereum blockchain using Web3.js. It fetches real-time balance and transaction data from any Ethereum wallet address.</p>
+        <p>Features:</p>
+        <ul>
+            <li>Real-time ETH balance checking</li>
+            <li>Transaction count display</li>
+            <li>Network detection</li>
+            <li>Intuitive, responsive UI</li>
+        </ul>
+    </div>
+
+    <script>
+        let web3;
+
+        // Initialize Web3
+        async function initWeb3() {
+            if (window.ethereum) {
+                try {
+                    // Request account access
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    web3 = new Web3(window.ethereum);
+                    return true;
+                } catch (error) {
+                    console.error("User denied account access");
+                }
+            } 
+            // If no injected web3 instance is detected, fall back to Infura
+            else {
+                web3 = new Web3(new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/your-infura-key'));
+                return true;
+            }
+            return false;
+        }
+
+        // Check wallet function
+        async function checkWallet() {
+            const address = document.getElementById('walletAddress').value;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('result').style.display = 'none';
+            
+            // Basic validation
+            if (!address || !address.startsWith('0x') || address.length !== 42) {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+            
+            // Initialize Web3 if not already
+            if (!web3) {
+                const initialized = await initWeb3();
+                if (!initialized) {
+                    document.getElementById('error').innerHTML = '<p>Error: Could not connect to Ethereum network</p>';
+                    document.getElementById('error').style.display = 'block';
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+            }
+            
+            try {
+                // Get network ID
+                const networkId = await web3.eth.net.getId();
+                let networkName;
+                
+                switch(networkId) {
+                    case 1:
+                        networkName = "Ethereum Mainnet";
+                        break;
+                    case 5:
+                        networkName = "Goerli Testnet";
+                        break;
+                    case 11155111:
+                        networkName = "Sepolia Testnet";
+                        break;
+                    default:
+                        networkName = `Network ID: ${networkId}`;
+                }
+                
+                // Get balance and transaction count
+                const balance = await web3.eth.getBalance(address);
+                const txCount = await web3.eth.getTransactionCount(address);
+                
+                // Display results
+                document.getElementById('address').textContent = address;
+                document.getElementById('balance').textContent = web3.utils.fromWei(balance, 'ether') + " ETH";
+                document.getElementById('txCount').textContent = txCount;
+                document.getElementById('network').textContent = networkName;
+                
+                document.getElementById('result').style.display = 'block';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('error').innerHTML = `<p>Error: ${error.message}</p>`;
+                document.getElementById('error').style.display = 'block';
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize Web3 on page load
+        window.addEventListener('load', function() {
+            initWeb3();
+        });
+    </script>
+</body>
+</html>
